@@ -497,7 +497,7 @@ function printReceipt() {
   el.innerHTML = `
     <!-- Header -->
     <div style="text-align:center;margin-bottom:20px;">
-      <div style="font-size:1.6rem;font-weight:800;letter-spacing:0.12em;color:#7a5c3e;">BREWS.CO</div>
+      <div style="font-size:1.6rem;font-weight:800;letter-spacing:0.12em;color:#7a5c3e;">${esc(shopName())}</div>
       <div style="font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:#b08060;margin-top:3px;">Daily Inventory Receipt</div>
       <div style="font-size:0.8rem;color:#9a7a5e;margin-top:7px;">${d.date}${d.shiftDuration ? `<span style="color:#c4a98a;margin-left:10px;font-size:0.72rem;">⏱ ${d.shiftDuration}</span>` : ""}</div>
     </div>

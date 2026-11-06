@@ -426,7 +426,6 @@ function renderDrinkButtons() {
     btn.innerHTML = `
       <span class="qty-badge" id="badge-${d.code}">${qty}</span>
       ${drinkIconHTML(d)}
-      <span class="drink-btn-code">${d.code}</span>
       <span class="drink-btn-name">${esc(d.name)}</span>
       <span class="drink-btn-price">${fmt(d.price)}</span>
       ${d.cup ? `<span class="stock-pill">${out ? "OUT" : low ? `${left} left` : left}</span>` : ""}

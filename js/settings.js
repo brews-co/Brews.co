@@ -29,6 +29,9 @@ const SETTINGS_DEFAULTS = {
   lowStock:             5,     // cups remaining before yellow warning
   // ── Sound ────────────────────────────────────────
   soundEnabled:         true,
+  // ── Shop ─────────────────────────────────────────
+  shopName:             "BREWS.CO",
+  cupLabels: { S: "Small cup", M: "Medium cup", L: "Large cup", HC: "Hot coffee cup" },
   // ── Flavors ──────────────────────────────────────
   flavors: {
     milktea: [
@@ -71,6 +74,8 @@ function getSettings() {
     ...saved,
     prices:      { ...SETTINGS_DEFAULTS.prices,      ...(saved.prices      || {}) },
     addonPrices: { ...SETTINGS_DEFAULTS.addonPrices, ...(saved.addonPrices || {}) },
+    cupLabels:   { ...SETTINGS_DEFAULTS.cupLabels,   ...(saved.cupLabels   || {}) },
+    flavorLabels: saved.flavorLabels && typeof saved.flavorLabels === "object" ? saved.flavorLabels : {},
     flavors,
   };
 }

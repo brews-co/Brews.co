@@ -48,3 +48,17 @@ function cleanHTML(html) {
   });
   return doc.body.innerHTML;
 }
+
+// Shop name (editable in Settings). Read straight from storage so it works on every page.
+const DEFAULT_SHOP_NAME = "BREWS.CO";
+function shopName() {
+  const s = readJSON("brewsSettings", {});
+  const n = s && typeof s.shopName === "string" ? s.shopName.trim() : "";
+  return (n || DEFAULT_SHOP_NAME).slice(0, 24);
+}
+// Fills every [data-shop-name] element and the page title once the page is ready.
+document.addEventListener("DOMContentLoaded", () => {
+  const name = shopName();
+  document.querySelectorAll("[data-shop-name]").forEach(el => { el.textContent = name; });
+  if (document.title.includes(DEFAULT_SHOP_NAME)) document.title = document.title.replace(DEFAULT_SHOP_NAME, name);
+});

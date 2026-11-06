@@ -33,6 +33,28 @@ function savePay() {
   });
 }
 
+function saveShop() {
+  updateSettings(c => {
+    c.shopName = (document.getElementById("sp_shopName").value || "").trim().slice(0, 24) || "BREWS.CO";
+    c.cupLabels = {};
+    ["S", "M", "L", "HC"].forEach(k => {
+      const v = (document.getElementById("sp_cup" + k).value || "").trim().slice(0, 24);
+      if (v) c.cupLabels[k] = v;
+    });
+  });
+  document.querySelectorAll("[data-shop-name]").forEach(el => { el.textContent = shopName(); });
+  renderMenuList();
+}
+
+function renameFlavorList(key, val) {
+  updateSettings(c => {
+    c.flavorLabels = c.flavorLabels || {};
+    const v = String(val || "").trim().slice(0, 24);
+    if (v && v !== FLAVOR_BUILTIN[key]) c.flavorLabels[key] = v; else delete c.flavorLabels[key];
+  });
+  renderFlavors();
+}
+
 function saveAddons() {
   updateSettings(c => {
     c.addonPrices = {};
@@ -72,11 +94,14 @@ function renderFlavors() {
   const box = document.getElementById("flavorLists");
   if (!box) return;
   const flavors = getSettings().flavors;
-  box.innerHTML = flavorListInfo().map(({ key, label }) => {
+  box.innerHTML = flavorListInfo().map(({ key, label, builtin }) => {
     const list = flavors[key] || [];
+    const rename = builtin ? `<input class="sflavor-add-input" type="text" maxlength="24" value="${esc(label)}" placeholder="List name" aria-label="List name"
+        style="width:100%;margin:6px 0 8px;" onchange="renameFlavorList('${esc(key)}',this.value)">` : "";
     return `
     <div class="sflavor-cat">
       <div class="sflavor-cat-title">${esc(label)} <small style="color:var(--bark);font-weight:600;">(${list.length})</small></div>
+      ${rename}
       <div class="sflavor-pills">${list.length
         ? list.map((f, i) => `<span class="sflavor-pill">${esc(f)}<button type="button" class="sflavor-pill-del" onclick="flavorRemove('${esc(key)}',${i})" aria-label="Remove">✕</button></span>`).join("")
         : `<span style="font-size:0.76rem;color:var(--mochaccino);">No flavors yet</span>`}</div>
@@ -169,7 +194,7 @@ function importBackup(file) {
 }
 
 function confirmResetSettings() {
-  if (!confirm("Reset prices, salary, add-ons and flavors to defaults?\n\nYour menu layout and history are not touched. This cannot be undone.")) return;
+  if (!confirm("Reset prices, salary, add-ons, flavors, shop name and cup names to defaults?\n\nYour menu layout and history are not touched. This cannot be undone.")) return;
   resetSettings(); renderAll(); toast("Settings reset");
 }
 
@@ -193,9 +218,13 @@ function renderAll() {
       <button type="button" onclick="this.parentElement.remove();saveAddons();">✕</button>
     </div>`).join("");
 
+  const cl = s.cupLabels;
+  const cupInput = (k, label) => `<div class="smodal-field"><label class="smodal-label" for="sp_cup${k}">${label}</label>
+    <input class="smodal-input" id="sp_cup${k}" type="text" maxlength="24" value="${esc(cl[k])}" onchange="saveShop()"></div>`;
+
   document.getElementById("settingsBody").innerHTML =
     fold("products", "🧋 Products", `
-      <div style="font-size:0.76rem;color:var(--bark);margin-bottom:10px;line-height:1.5;">Tap a product to change its name, price, cup, flavors, icon or color. New products can have their own flavor list. Use the arrows to reorder.</div>
+      <div style="font-size:0.76rem;color:var(--bark);margin-bottom:10px;line-height:1.5;">Tap a product to change its name, price, flavors, icon or color, or to delete it. Every product, including the original ones, can be edited or deleted. Deleted originals can be restored. Use the arrows to reorder.</div>
       <div id="menuManager"></div>`, openSet.has("products")) +
 
     fold("flavors", "🏷️ Flavors", `
@@ -205,6 +234,15 @@ function renderAll() {
     fold("addons", "➕ Add-ons", `
       <div id="saddonContainer">${addonRows}</div>
       <button class="add-expense-btn" onclick="addAddonRow()">+ Add Add-on</button>`, openSet.has("addons")) +
+
+    fold("shop", "🏪 Shop &amp; Cups", `
+      <div style="font-size:0.76rem;color:var(--bark);margin-bottom:10px;line-height:1.5;">The shop name shows in the header, receipts and reports. Cup names show when you pick a cup for a product.</div>
+      <div class="smodal-field"><label class="smodal-label" for="sp_shopName">Shop name</label>
+        <input class="smodal-input" id="sp_shopName" type="text" maxlength="24" value="${esc(s.shopName)}" onchange="saveShop()"></div>
+      <div class="smodal-grid">
+        ${cupInput("S", "Small cup")}${cupInput("M", "Medium cup")}
+        ${cupInput("L", "Large cup")}${cupInput("HC", "Hot cup")}
+      </div>`, openSet.has("shop")) +
 
     fold("pay", "💰 Pay &amp; Alerts", `
       <div class="smodal-grid-3">
@@ -264,7 +302,7 @@ function renderAll() {
         <button class="fold-btn" onclick="document.getElementById('backupFile').click()">⬆️ Restore from Backup</button>
         <button class="fold-btn danger" onclick="confirmResetSettings()">↺ Reset Settings to Default</button>
       </div>
-      <div style="font-size:0.68rem;color:var(--dust);margin-top:14px;text-align:center;">BREWS.CO · version 16 · <a href="LICENSE" style="color:var(--bark);">License</a> · <a href="vendor/THIRD_PARTY_NOTICES.md" style="color:var(--bark);">Open-source notices</a></div>`, openSet.has("data"));
+      <div style="font-size:0.68rem;color:var(--dust);margin-top:14px;text-align:center;">BREWS.CO · version 18 · <a href="LICENSE" style="color:var(--bark);">License</a> · <a href="vendor/THIRD_PARTY_NOTICES.md" style="color:var(--bark);">Open-source notices</a></div>`, openSet.has("data"));
 
   // remember which sections are open
   document.querySelectorAll("details.fold").forEach(d => d.addEventListener("toggle", () => {

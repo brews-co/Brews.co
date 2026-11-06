@@ -128,7 +128,7 @@
     .drink-btn-icon  { font-size: 1.4rem; line-height: 1; }
     .drink-btn-code  { font-size: 0.76rem; font-weight: 800; color: var(--mahogany); letter-spacing: 0.05em; }
     .drink-btn-name  {
-      font-size: 0.62rem; color: var(--bark); text-align: center; line-height: 1.2;
+      font-size: 0.76rem; font-weight: 800; color: var(--mahogany); letter-spacing: 0.02em; text-align: center; line-height: 1.2; max-width: 100%;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
     .drink-btn-price { font-size: 0.7rem; font-weight: 700; color: var(--roast); margin-top: 1px; }
@@ -807,7 +807,7 @@
     <!-- Row 1: Brand + End Shift (always fully visible) -->
     <div class="pos-header-row1">
       <div class="pos-header-left">
-        <span class="pos-header-brand">BREWS.CO</span>
+        <span class="pos-header-brand" data-shop-name>BREWS.CO</span>
         <div class="pos-header-meta">
           <span>Active Shift</span><span>·</span>
           <span class="pos-clock" id="posClock"></span>
@@ -1040,7 +1040,7 @@
 <div class="modal-overlay centered receipt-modal" id="receiptModal">
   <div class="modal">
     <div class="receipt-header">
-      <div class="receipt-brand">BREWS.CO</div>
+      <div class="receipt-brand" data-shop-name>BREWS.CO</div>
       <div class="receipt-meta">Order Receipt</div>
       <div class="receipt-ordernum" id="receiptOrderNum"></div>
     </div>

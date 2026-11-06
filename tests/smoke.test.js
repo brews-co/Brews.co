@@ -37,6 +37,14 @@ server.listen(0, async () => {
   w.eval("openMenuItemEditor('M')"); const sh = d.getElementById("menuItemSheet");
   sh.dispatchEvent(new w.MouseEvent("click", { bubbles: true }));
   check("editor ignores the tap that opened it", sh.classList.contains("open"));
+  w.eval('openMenuItemEditor("M"); deleteMenuItem();');
+  check("a default product can be deleted", !w.eval("loadMenuDrinks()").some(x => x.code === "M") && w.eval("loadMenuDrinks().length") === 7);
+  w.eval("restoreDeletedMenu()");
+  check("deleted defaults can be restored", w.eval("loadMenuDrinks().some(x => x.code === 'M')"));
+  w.eval('openMenuItemEditor("FTM"); _mi.cup="L"; _mi.name="Berry Tea"; saveMenuItem();');
+  check("non-core default can change cup and name", w.eval("loadMenuDrinks().find(x=>x.code==='FTM')").cup === "L" && w.eval("loadMenuDrinks().find(x=>x.code==='FTM')").name === "Berry Tea");
+  w.eval('document.getElementById("sp_shopName").value="My Cafe"; saveShop();');
+  check("shop name is editable", w.eval("shopName()") === "My Cafe");
   check("localDate is local", w.eval("localDate(new Date(2026,0,5,1,0))") === "2026-01-05");
   check("cleanHTML strips handlers", !w.eval('cleanHTML("<img src=x onerror=alert(1)><script>1</script><b>ok</b>")').match(/onerror|script/));
   dom.window.close();
@@ -54,6 +62,7 @@ server.listen(0, async () => {
   const ids = JSON.parse(w.eval("JSON.stringify(state.orders.map(o=>o.id))"));
   check("order ids stay unique after a void", new Set(ids).size === ids.length);
   [...d.querySelectorAll("#drinksGrid .drink-btn")].find(b => b.textContent.includes("Brownie")).click();
+  check("tile shows product name, not the code", [...d.querySelectorAll("#drinksGrid .drink-btn")].every(b => !b.querySelector(".drink-btn-code")));
   check("no-cup, no-flavor product adds straight to the order", w.eval("state.currentItems.some(i=>i.code==='P1')") && !d.getElementById("flavorModal").classList.contains("open"));
   check("shift timer runs", /^\d+m \d+s$/.test(d.getElementById("shiftTimer").textContent) || /h/.test(d.getElementById("shiftTimer").textContent));
   dom.window.close();
