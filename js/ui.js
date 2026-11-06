@@ -505,7 +505,7 @@ function printReceipt() {
     <style>
       /* the app's own table rules (and the small-screen ones) must not shrink the receipt */
       .rcpt-root table { margin-top:0; border-radius:0; overflow:visible; font-size:1.02rem; }
-      .rcpt-root td { font-size:1.02rem; }
+      .rcpt-root td { font-size:1.02rem; border-bottom:none; }
     </style>
     <div style="text-align:center;margin-bottom:22px;">
       <div style="font-size:2.3rem;font-weight:800;letter-spacing:0.14em;color:#7E5E49;line-height:1.1;">${esc(shopName())}</div>
@@ -600,6 +600,16 @@ function printReceipt() {
     })()}
   `;
 
+  // Follow the Accent Color from Settings: every brand color on the receipt is shifted by it.
+  // (Warning red and delivery green are left alone.)
+  const BRAND = ["#FEFBF4","#7E5E49","#B08A66","#A8927C","#E3CDB0","#F4C8D7","#9A7A5E","#D0BAA3","#FBF7F1","#7D6855","#352B22","#F0E7DA","#EADFCF","#C4A98A","#2B2018",
+                 "#b08060","#5c4631","#f0e4d8","#d4b89e","#fdf7f0","#3d2b1a","#7a5c3e","#fdf7f2","#e8d5c4"];
+  const rot = hex => (window.BrewsTheme && BrewsTheme.rotate) ? BrewsTheme.rotate(hex) : hex;
+  const map = {}; BRAND.forEach(h => { map[h.toLowerCase()] = rot(h); });
+  const re  = new RegExp(BRAND.join("|"), "gi");
+  el.innerHTML = el.innerHTML.replace(re, m => map[m.toLowerCase()] || m);
+  const _bg = rot("#FEFBF4");
+  el.style.background = _bg;
   document.body.appendChild(el);
 
   // Keep amounts on one line; if anything is too wide, make the receipt wider
@@ -609,7 +619,7 @@ function printReceipt() {
     _w += 40; el.style.width = _w + "px";
   }
 
-  html2canvas(el, { backgroundColor: "#FEFBF4", scale: 2, useCORS: true, logging: false })
+  html2canvas(el, { backgroundColor: _bg, scale: 2, useCORS: true, logging: false })
     .then(canvas => {
       document.body.removeChild(el);
       canvas.toBlob(b => {

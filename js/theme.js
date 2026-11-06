@@ -134,9 +134,13 @@
   if (safeColor(savedAccent)) applyAccent(savedAccent);
   if (safeImg(savedBg)) applyBackground(savedBg);
 
+  const getAccentNow = () => safeColor(localStorage.getItem(ACCENT_KEY)) || BASE.caramel;
+
   // Public API used by the Theme settings UI (pos.html)
   window.BrewsTheme = {
     BASE, REF_HUE,
+    // Shifts any brand color by the current accent (used by the receipt image)
+    rotate: hex => { const d = hexToHsl(getAccentNow()).h - REF_HUE; return rotateHex(hex, d); },
     getAccent: () => safeColor(localStorage.getItem(ACCENT_KEY)) || BASE.caramel,
     getBackground: () => safeImg(localStorage.getItem(BG_KEY)) || "",
     setAccent(hex) { if (!safeColor(hex)) return; try { localStorage.setItem(ACCENT_KEY, hex); } catch {} applyAccent(hex); },
