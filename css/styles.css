@@ -463,7 +463,7 @@ body.has-bottom-nav .pos-body { padding-bottom: 92px; }
 .drink-btn { height: auto; min-height: 116px; }
 .drink-btn-img { width: 36px; height: 36px; border-radius: 9px; object-fit: cover; display: block; }
 .drink-btn.custom { background: var(--tile-bg) !important; }
-.drink-btn.custom .drink-btn-code, .drink-btn.custom .drink-btn-name, .drink-btn.custom .drink-btn-price { color: var(--tile-fg); }
+.drink-btn.custom-fg .drink-btn-code, .drink-btn.custom-fg .drink-btn-name, .drink-btn.custom-fg .drink-btn-price { color: var(--tile-fg); }
 
 .drinks-grid.editing { touch-action: pan-y; }
 .drink-btn.editing { cursor: grab; touch-action: pan-y; animation: tileWiggle .32s ease-in-out infinite alternate; }
@@ -588,3 +588,24 @@ select.mi-input { appearance: auto; }
 .mi-flavtitle { font-size: 0.78rem; font-weight: 700; color: var(--mahogany); margin-bottom: 8px; }
 .mi-flavtitle small { color: var(--bark); font-weight: 600; }
 .mi-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; max-height: 150px; overflow-y: auto; }
+
+/* ── Menu editor: preview + saved colors ── */
+.mi-tile-preview { width: 130px; min-height: 96px; margin: 0 auto; cursor: default; pointer-events: none; }
+.mi-colorinput { width: 38px; height: 32px; padding: 0; border: none; background: none; }
+.mi-pal { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px; padding: 8px 10px; background: var(--cream); border-radius: var(--radius-md); }
+.mi-pal-label { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bark); width: 100%; }
+.mi-pal-empty { font-size: 0.74rem; color: var(--bark); }
+.mi-btn.small { padding: 5px 10px; font-size: 0.72rem; }
+.mi-btn:disabled { opacity: 0.4; }
+.mi-swatch { position: relative; }
+.mi-sw-x { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #fff; background: rgba(0,0,0,.45); border-radius: 50%; }
+
+/* ── Placed orders: add-ons + refunds ── */
+.oe-actions { display: flex; gap: 6px; padding: 6px 14px 2px; flex-wrap: wrap; }
+.oe-btn { background: var(--parchment); border: 1.5px solid var(--latte); border-radius: var(--radius-md); padding: 4px 10px; font-size: 0.7rem; font-weight: 700; color: var(--mahogany); }
+.oe-btn.refund { background: #fbeaea; border-color: #e0a8a8; color: #a03030; }
+.oe-lock { font-size: 0.68rem; color: var(--bark); padding: 4px 14px 0; }
+.addon-chip.locked { opacity: .75; }
+.refund-note { font-size: 0.72rem; color: #a03030; font-weight: 700; display: flex; justify-content: space-between; padding: 4px 14px 0; }
+.refund-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 4px; border-bottom: 1px solid var(--latte); font-size: 0.82rem; color: var(--roast); }
+.refund-row small { display: block; color: var(--bark); font-size: 0.7rem; }

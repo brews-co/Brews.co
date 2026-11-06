@@ -41,16 +41,31 @@ class InventorySystem {
   setMC(tally)                   { this.MC.usedCups = tally; }
   setLC(tally)                   { this.LC.usedCups = tally; }
 
-  // list: [{ name, cup, qty, total }]. Their cups come out of the matching cup count,
-  // and their sales are added on their own rows.
+  // Cup stock is one pool per cup size:  beg + delivered - out = end   (M, L, S, HC).
+  // Every product sold from a cup comes out of that pool. Where it shows on the receipt:
+  //   - same cup AND same price as an existing row  -> it stays on that row
+  //     (Fruit Tea M at the Medium price is simply part of the Medium row)
+  //   - different price                              -> it gets its own row, and its cups
+  //     are taken out of the cup row they came from so nothing is counted twice
+  // list: [{ name, cup, qty, total, price? }]  (price defaults to total / qty)
   setExtras(list) {
     this.extras = [];
+    const plain  = { M: this.M, L: this.L, S: this.S, HC: this.HC };
+    const coffee = { M: this.MC, L: this.LC };
     (list || []).forEach(e => {
-      if (!e.qty) return;
-      const it = new Item(e.name, e.total / e.qty);
-      it.usedCups = e.qty;
+      const qty = Number(e.qty) || 0;
+      if (!qty) return;
+      const price = e.price != null ? Number(e.price) : e.total / qty;
+      const base  = e.cup ? plain[e.cup] : null;
+      if (base && Math.abs(base.price - price) < 0.005) return;                 // stays on M / L / S / HC row
+      const cof = e.cup ? coffee[e.cup] : null;
+      if (cof && Math.abs(cof.price - price) < 0.005) {                          // same as the iced coffee row
+        cof.usedCups += qty; base.usedCups -= qty; return;
+      }
+      const it = new Item(e.name, price);                                        // own row
+      it.usedCups = qty;
       this.extras.push(it);
-      if (e.cup && this[e.cup]) this[e.cup].usedCups -= e.qty;
+      if (base) base.usedCups -= qty;
     });
   }
 

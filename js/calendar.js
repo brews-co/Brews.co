@@ -411,6 +411,7 @@ const today    = new Date();
               ${flavors ? `<div class="log-order-flavors">🍵 ${flavors}</div>` : ""}
               ${addons  ? `<div class="log-order-addons">+ ${addons}</div>` : ""}
               ${cupNotes ? `<div class="log-order-addons">Notes — ${cupNotes}</div>` : ""}
+              ${(order.refunds || []).length ? `<div class="log-order-payment" style="color:#a03030">↩ Refunded ${formatMoney(order.refunds.reduce((t, r) => t + (Number(r.amount) || 0), 0))} — ${esc(order.refunds.map(r => r.label).join(", "))}</div>` : ""}
               ${order.given > 0 ? `<div class="log-order-payment">Given ${formatMoney(order.given)} · ${change >= 0 ? "Change" : "Short"} ${formatMoney(Math.abs(change))}</div>` : ""}
             </div>
             <span class="log-order-total">${order.time || ""}</span>

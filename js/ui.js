@@ -435,13 +435,15 @@ function printReceipt() {
   const _cupKeyMap = { "Medium":"M", "Large":"L", "Small":"S", "Hot Coffee":"HC",
                        "Iced Coffee M":"M", "Iced Coffee L":"L" };
 
+  const C = { ink:"#352B22", mid:"#7D6855", soft:"#A8927C", line:"#F0E7DA", warn:"#c0665a" };
+  const td = (extra) => `padding:12px 4px;border-bottom:1px solid ${C.line};${extra||""}`;
   const cupRows = d.rows.map(({ item, beg, end, dmg }) => {
     const endTxt = end === null ? "—"
-      : dmg > 0 ? `${end}<br><span style="color:#c0665a;font-weight:700;font-size:.7em">−${dmg}</span>`
+      : dmg > 0 ? `${end}<br><span style="color:${C.warn};font-weight:700;font-size:.7em">−${dmg}</span>`
       : `${end}`;
     const neg = item.usedCups < 0;
 
-    // Delivery annotation — below number, green, no label (block below explains)
+    // Delivery: small green number under Beg (beg + delivered − out = end)
     const cupKey  = _cupKeyMap[item.name];
     const delQty  = (d.deliveries || {})[cupKey] || 0;
     const origBeg = beg === null ? null : ((d.origBegs || {})[cupKey] ?? beg);
@@ -452,19 +454,14 @@ function printReceipt() {
 
     return `
       <tr>
-        <td style="text-align:left;padding:6px 8px;color:${neg?"#c0665a":"#3d2b1a"};border-bottom:1px solid #f0e4d8;word-break:break-word;">${esc(item.name)}</td>
-        <td style="text-align:center;padding:6px 4px;color:#7a5c3e;border-bottom:1px solid #f0e4d8;line-height:1.3;">${begDisplay}</td>
-        <td style="text-align:center;padding:6px 4px;color:${neg?"#c0665a":"#3d2b1a"};font-weight:${neg?700:400};border-bottom:1px solid #f0e4d8;">${item.usedCups}${neg?" ⚠":""}</td>
-        <td style="text-align:center;padding:6px 4px;color:#9a7a5e;border-bottom:1px solid #f0e4d8;">${fmtR(item.price)}</td>
-        <td style="text-align:center;padding:6px 4px;border-bottom:1px solid #f0e4d8;">${endTxt}</td>
-        <td style="text-align:right;padding:6px 8px;color:${neg?"#c0665a":"#3d2b1a"};font-weight:700;border-bottom:1px solid #f0e4d8;">${fmtR(item.total)}</td>
+        <td style="${td(`text-align:left;padding-left:8px;color:${neg?C.warn:C.ink};word-break:break-word;`)}">${esc(item.name)}</td>
+        <td style="${td(`text-align:center;color:${C.mid};line-height:1.3;`)}">${begDisplay}</td>
+        <td style="${td(`text-align:center;color:${neg?C.warn:C.mid};font-weight:${neg?700:400};`)}">${item.usedCups}${neg?" ⚠":""}</td>
+        <td style="${td(`text-align:center;color:${C.soft};`)}">${fmtR(item.price)}</td>
+        <td style="${td(`text-align:center;color:${C.mid};`)}">${endTxt}</td>
+        <td style="${td(`text-align:right;padding-right:8px;color:${neg?C.warn:C.ink};font-weight:800;`)}">${fmtR(item.total)}</td>
       </tr>`;
   }).join("");
-
-  const expRows = d.expenses.map(e =>
-    `<tr><td style="padding:3px 8px 3px 20px;color:#9a7a5e;font-size:.83rem" colspan="2">↳ ${esc(e.name)}</td>
-         <td style="text-align:right;padding:3px 8px;color:#9a7a5e;font-size:.83rem" colspan="4">− ${fmtR(e.price)}</td></tr>`
-  ).join("");
 
   const dmgNote = (() => {
     const parts = [];
@@ -488,81 +485,71 @@ function printReceipt() {
   const el = document.createElement("div");
   el.style.cssText = `
     position:fixed; left:-9999px; top:0;
-    width:480px; background:#fffaf5;
+    width:480px; background:#FEFBF4;
     font-family:"Plus Jakarta Sans","Segoe UI",sans-serif;
-    padding:36px 32px 40px; box-sizing:border-box;
+    padding:44px 32px 44px; box-sizing:border-box;
     color:#3d2b1a;
   `;
 
+  const totalExp = d.salary + d.expenses.reduce((t,e)=>t+e.price,0);
+  const th = (al, extra) => `style="background:#F4C8D7;text-align:${al};padding:11px 4px;color:#9A7A5E;font-size:.74rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;${extra||""}"`;
+  const sumRow = (label, val, o={}) => `
+      <tr style="border-bottom:1px solid ${o.sub?C.line:"#EADFCF"};">
+        <td style="padding:${o.sub?"11px 8px 11px 28px":"14px 8px"};color:${o.sub?C.soft:o.bold?"#2B2018":C.mid};font-size:${o.big?"1.25rem":o.sub?".95rem":"1.02rem"};font-weight:${o.bold?800:400};">${label}</td>
+        <td style="text-align:right;padding:${o.sub?"11px 8px":"14px 8px"};color:${o.sub?C.soft:o.bold?"#2B2018":C.mid};font-size:${o.big?"1.3rem":o.sub?".95rem":"1.02rem"};font-weight:${o.bold?800:400};white-space:nowrap;">${val}</td>
+      </tr>`;
+
+  el.style.background = "#FEFBF4";
+  el.className = "rcpt-root";
   el.innerHTML = `
-    <!-- Header -->
-    <div style="text-align:center;margin-bottom:20px;">
-      <div style="font-size:1.6rem;font-weight:800;letter-spacing:0.12em;color:#7a5c3e;">${esc(shopName())}</div>
-      <div style="font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:#b08060;margin-top:3px;">Daily Inventory Receipt</div>
-      <div style="font-size:0.8rem;color:#9a7a5e;margin-top:7px;">${d.date}${d.shiftDuration ? `<span style="color:#c4a98a;margin-left:10px;font-size:0.72rem;">⏱ ${d.shiftDuration}</span>` : ""}</div>
+    <style>
+      /* the app's own table rules (and the small-screen ones) must not shrink the receipt */
+      .rcpt-root table { margin-top:0; border-radius:0; overflow:visible; font-size:1.02rem; }
+      .rcpt-root td { font-size:1.02rem; }
+    </style>
+    <div style="text-align:center;margin-bottom:22px;">
+      <div style="font-size:2.3rem;font-weight:800;letter-spacing:0.14em;color:#7E5E49;line-height:1.1;">${esc(shopName())}</div>
+      <div style="font-size:0.82rem;letter-spacing:0.2em;text-transform:uppercase;color:#B08A66;margin-top:14px;">Daily Inventory Receipt</div>
+      <div style="font-size:1.12rem;letter-spacing:.08em;color:#A8927C;margin-top:18px;">${d.date}${d.shiftDuration ? `<span style="color:#C4A98A;margin-left:10px;font-size:0.78rem;">⏱ ${d.shiftDuration}</span>` : ""}</div>
     </div>
 
-    <!-- Dashed divider -->
-    <div style="border-top:1.5px dashed #d4b89e;margin:0 0 16px;"></div>
+    <div style="border-top:1.5px dashed #E3CDB0;margin:0 0 22px;"></div>
 
-    <!-- Cup Sales table -->
-    <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#b08060;margin-bottom:8px;text-align:center;">Cup Sales</div>
-    <table class="rcpt-fit" style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+    <div style="font-size:.82rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#B08A66;margin-bottom:14px;text-align:center;">Cup Sales</div>
+    <table class="rcpt-fit" style="width:100%;border-collapse:separate;border-spacing:0;font-size:1.02rem;">
       <thead>
-        <tr style="background:#f5ede5;">
-          <th style="text-align:left;padding:6px 8px;color:#9a7a5e;font-size:.66rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;">Item</th>
-          <th style="text-align:center;padding:6px 4px;color:#9a7a5e;font-size:.66rem;font-weight:700;text-transform:uppercase;">Beg</th>
-          <th style="text-align:center;padding:6px 4px;color:#9a7a5e;font-size:.66rem;font-weight:700;text-transform:uppercase;">Cups</th>
-          <th style="text-align:center;padding:6px 4px;color:#9a7a5e;font-size:.66rem;font-weight:700;text-transform:uppercase;">Price</th>
-          <th style="text-align:center;padding:6px 4px;color:#9a7a5e;font-size:.66rem;font-weight:700;text-transform:uppercase;">End</th>
-          <th style="text-align:right;padding:6px 8px;color:#9a7a5e;font-size:.66rem;font-weight:700;text-transform:uppercase;">Amount</th>
+        <tr style="background:#F4C8D7;">
+          <th ${th("left","padding-left:8px;border-radius:16px 0 0 0;")}>Item</th>
+          <th ${th("center")}>Beg</th>
+          <th ${th("center")}>Cups</th>
+          <th ${th("center")}>Price</th>
+          <th ${th("center")}>End</th>
+          <th ${th("right","padding-right:8px;border-radius:0 16px 0 0;")}>Amount</th>
         </tr>
       </thead>
       <tbody>${cupRows}</tbody>
       <tfoot>
-        <tr style="border-top:2px solid #d4b89e;background:#fdf7f2;">
-          <td colspan="5" style="padding:7px 8px;font-weight:700;color:#7a5c3e;font-size:.85rem;">Total Cup Sales</td>
-          <td style="text-align:right;padding:7px 8px;font-weight:700;color:#7a5c3e;">${fmtR(d.totalSales)}</td>
+        <tr style="background:#FBF7F1;">
+          <td colspan="5" style="padding:14px 8px;font-weight:800;color:#7E5E49;font-size:1.15rem;border-top:2px solid #D0BAA3;">Total Cup Sales</td>
+          <td style="text-align:right;padding:14px 8px;font-weight:800;color:#7E5E49;font-size:1.15rem;border-top:2px solid #D0BAA3;">${fmtR(d.totalSales)}</td>
         </tr>
       </tfoot>
     </table>
 
     ${dmgNote}${delNote}
 
-    <!-- Dashed divider -->
-    <div style="border-top:1.5px dashed #d4b89e;margin:14px 0;"></div>
+    <div style="border-top:1.5px dashed #E3CDB0;margin:22px 0 6px;"></div>
 
-    <!-- Breakdown -->
-    <table class="rcpt-fit" style="width:100%;border-collapse:collapse;font-size:0.84rem;">
-      <tr style="border-bottom:1px solid #e8d5c4;">
-        <td style="padding:6px 8px;color:#3d2b1a;font-weight:700;">Total Expenses:</td>
-        <td style="text-align:right;padding:6px 8px;color:#3d2b1a;font-weight:700;">− ${fmtR(d.salary + d.expenses.reduce((s,e)=>s+e.price,0))}</td>
-      </tr>
-      <tr style="border-bottom:1px solid #f0e4d8;">
-        <td style="padding:3px 8px 3px 22px;color:#9a7a5e;font-size:0.8rem;">Salary + Bonus</td>
-        <td style="text-align:right;padding:3px 8px;color:#9a7a5e;font-size:0.8rem;">− ${fmtR(d.salary)}</td>
-      </tr>
-      ${d.expenses.map(e=>`
-      <tr style="border-bottom:1px solid #f0e4d8;">
-        <td style="padding:3px 8px 3px 22px;color:#9a7a5e;font-size:0.8rem;">${esc(e.name)}</td>
-        <td style="text-align:right;padding:3px 8px;color:#9a7a5e;font-size:0.8rem;">− ${fmtR(e.price)}</td>
-      </tr>`).join("")}
-      <tr style="border-bottom:1px solid #e8d5c4;">
-        <td style="padding:6px 8px;color:#5c4631;">Gross Income:</td>
-        <td style="text-align:right;padding:6px 8px;color:#5c4631;">${fmtR(d.grossIncome)}</td>
-      </tr>
-      <tr style="border-bottom:1px solid #e8d5c4;">
-        <td style="padding:6px 8px;color:#5c4631;">Add-ons:</td>
-        <td style="text-align:right;padding:6px 8px;color:#5c4631;">${fmtR(d.addons)}</td>
-      </tr>
-      <tr>
-        <td style="padding:8px 8px;color:#3d2b1a;font-weight:700;font-size:0.92rem;">Final Total:</td>
-        <td style="text-align:right;padding:8px 8px;color:#3d2b1a;font-weight:800;font-size:0.92rem;">${fmtR(d.finalTotal)}</td>
-      </tr>
+    <table class="rcpt-fit" style="width:100%;border-collapse:collapse;">
+      ${sumRow("Total Expenses:", "− " + fmtR(totalExp), { bold:true })}
+      ${sumRow("Salary + Bonus", "− " + fmtR(d.salary), { sub:true })}
+      ${d.expenses.map(e => sumRow(esc(e.name), "− " + fmtR(e.price), { sub:true })).join("")}
+      ${sumRow("Gross Income:", fmtR(d.grossIncome))}
+      ${sumRow("Add-ons:", fmtR(d.addons))}
+      ${sumRow("Final Total:", fmtR(d.finalTotal), { bold:true, big:true })}
     </table>
 
-    <!-- Footer -->
-    <div style="text-align:center;margin-top:20px;font-size:0.62rem;color:#c4a98a;letter-spacing:0.1em;text-transform:uppercase;">
+    <div style="text-align:center;margin-top:30px;font-size:.78rem;color:#C4A98A;letter-spacing:0.12em;text-transform:uppercase;">
       Generated ${new Date().toLocaleString("en-PH")}
     </div>
 
@@ -622,7 +609,7 @@ function printReceipt() {
     _w += 40; el.style.width = _w + "px";
   }
 
-  html2canvas(el, { backgroundColor: "#fffaf5", scale: 2, useCORS: true, logging: false })
+  html2canvas(el, { backgroundColor: "#FEFBF4", scale: 2, useCORS: true, logging: false })
     .then(canvas => {
       document.body.removeChild(el);
       canvas.toBlob(b => {

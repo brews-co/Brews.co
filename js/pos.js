@@ -122,7 +122,9 @@ let state = {
   shiftStartTime: null,  // timestamp ms
 };
 
-const GCASH_EXPENSE_NAME = "GCash (Paid Online)";
+const GCASH_EXPENSE_NAME  = "GCash (Paid Online)";
+const REFUND_EXPENSE_NAME = "Refunds (cash)";
+const isAutoExpense = n => n === GCASH_EXPENSE_NAME || n === REFUND_EXPENSE_NAME;
 
 let flavorToastTimer = null;
 let pendingDrink = null;
@@ -426,8 +428,8 @@ function renderDrinkButtons() {
     ].filter(Boolean).join(" ");
 
     const btn = document.createElement("button");
-    btn.className = cls + (d.color ? " custom" : "");
-    btn.style.cssText = (d.color ? drinkTileStyle(d) : "") + (firstPaint ? `--i:${Math.min(n, 14)};` : "");
+    btn.className = cls + drinkTileClass(d);
+    btn.style.cssText = drinkTileStyle(d) + (firstPaint ? `--i:${Math.min(n, 14)};` : "");
     btn.innerHTML = `
       <span class="qty-badge" id="badge-${d.code}">${qty}</span>
       ${drinkIconHTML(d)}
@@ -968,15 +970,20 @@ function toggleOrderPaidOnline(id) {
   }, 20);
 }
 
+// Two expense lines are kept in step with the orders automatically:
+//  - GCash: online-paid orders are not in the cash drawer (an online order's refunded add-ons leave it too)
+//  - Refunds (cash): cups refunded from orders paid in cash. The cup was already made, so stock stays
+//    as it is and the money going back shows as an expense.
 function syncGcashExpense() {
-  const total = state.orders.filter(o => o.paidOnline).reduce((s,o) => s + o.total, 0);
-  const idx = state.expenses.findIndex(e => e.name === GCASH_EXPENSE_NAME);
-  if (total > 0) {
-    if (idx >= 0) state.expenses[idx].price = total;
-    else state.expenses.push({ name: GCASH_EXPENSE_NAME, price: total });
-  } else if (idx >= 0) {
-    state.expenses.splice(idx, 1);
-  }
+  const online = state.orders.filter(o => o.paidOnline).reduce((s,o) => s + o.total - refundSums(o).addon, 0);
+  const cashCupRefunds = state.orders.filter(o => !o.paidOnline).reduce((s,o) => s + refundSums(o).cup, 0);
+  const put = (name, total) => {
+    const idx = state.expenses.findIndex(e => e.name === name);
+    if (total > 0) { if (idx >= 0) state.expenses[idx].price = total; else state.expenses.push({ name, price: total }); }
+    else if (idx >= 0) state.expenses.splice(idx, 1);
+  };
+  put(GCASH_EXPENSE_NAME, online);
+  put(REFUND_EXPENSE_NAME, cashCupRefunds);
   saveState();
   renderPosExpenses();
 }
@@ -997,6 +1004,9 @@ function renderOrdersLog() {
   const CODE_ORDER = [...DRINKS.map(d => d.code), ...Object.keys(nameOf).filter(c => !DRINKS.some(d => d.code === c))];
 
   list.innerHTML = [...state.orders].reverse().map(order => {
+    // Not done: qty and add-ons can still change. Done: locked, refund is the only way back.
+    const canEdit = !order.done && !(order.refunds || []).length;
+    const rs = refundSums(order);
     // ── Summary line: counts by drink type ──
     const codeCounts = {};
     order.items.forEach(i => { codeCounts[i.code] = (codeCounts[i.code]||0) + i.qty; });
@@ -1015,21 +1025,27 @@ function renderOrdersLog() {
       const groupItems = byCode[g];
       const groupQty   = groupItems.reduce((s, i) => s + i.qty, 0);
 
-      const rows = groupItems.map(i => `
+      const rows = groupItems.map(i => {
+        const k = i.key.replace(/'/g,"\\'");
+        const refunded = (i.refundedQty || 0) + Object.values(i.refundedAddons || {}).reduce((a,b)=>a+b,0);
+        const qtyControls = canEdit
+          ? `<button class="order-edit-btn remove" onclick="event.stopPropagation();editOrderItem(${order.id},'${k}','dec')">−</button>
+             <span class="order-edit-qty">${i.qty}</span>
+             <button class="order-edit-btn" onclick="event.stopPropagation();editOrderItem(${order.id},'${k}','inc')">+</button>`
+          : `<span class="order-edit-qty">${i.qty}</span>`;
+        const addBtn = !order.done
+          ? `<button class="oe-btn" style="margin-top:4px;" onclick="event.stopPropagation();openOrderAddon(${order.id},'${k}')">＋ Add-on</button>` : "";
+        return `
         <div class="order-edit-row">
           <div class="order-edit-name">
             ${i.flavor ? esc(i.flavor) : `<em style="opacity:.45;font-style:italic">No Flavor</em>`}
             ${itemChipsHTML(i) ? `<div class="order-edit-chips order-item-addons">${itemChipsHTML(i)}</div>` : ""}
+            ${refunded ? `<div style="font-size:.66rem;color:#a03030;font-weight:700;">${i.refundedQty ? `${i.refundedQty} cup refunded` : ""}${i.refundedQty && Object.keys(i.refundedAddons||{}).length ? " · " : ""}${Object.keys(i.refundedAddons||{}).length ? "add-on refunded" : ""}</div>` : ""}
+            ${addBtn}
           </div>
-          <div class="order-edit-qty-wrap">
-            <button class="order-edit-btn remove"
-              onclick="event.stopPropagation();editOrderItem(${order.id},'${i.key.replace(/'/g,"\\'")}','dec')">−</button>
-            <span class="order-edit-qty">${i.qty}</span>
-            <button class="order-edit-btn"
-              onclick="event.stopPropagation();editOrderItem(${order.id},'${i.key.replace(/'/g,"\\'")}','inc')">+</button>
-          </div>
+          <div class="order-edit-qty-wrap">${qtyControls}</div>
           <span class="order-edit-total">${fmt((i.unitPrice+getItemAddonTotal(i))*i.qty)}</span>
-        </div>`).join("");
+        </div>`; }).join("");
 
       return `<div style="margin-bottom:2px;">
         <div style="display:flex;align-items:center;justify-content:space-between;
@@ -1089,6 +1105,7 @@ function renderOrdersLog() {
           <span class="order-log-desc">${desc}</span>
         </div>
         <div class="order-log-right">
+          ${(rs.cup + rs.addon) > 0 ? `<span style="font-size:0.62rem;font-weight:700;color:#a03030;background:#fbeaea;border:1px solid #e0a8a8;border-radius:6px;padding:2px 6px;flex-shrink:0;">Refund</span>` : ""}
           ${order.paidOnline ? `<span style="font-size:0.62rem;font-weight:700;color:var(--info);background:var(--info-bg);border:1px solid var(--info-border);border-radius:6px;padding:2px 6px;flex-shrink:0;">GCash</span>` : ""}
           <button class="order-done-btn${order.done?" done":""}"
             onclick="event.stopPropagation();toggleOrderDone(${order.id})">${doneLabel}</button>
@@ -1099,22 +1116,172 @@ function renderOrdersLog() {
       <div class="order-log-detail" style="padding:0 0 10px;">
         <div class="order-edit-header" style="padding:6px 14px 4px;">
           <span class="order-edit-label">Cups</span>
-          <span style="font-size:0.68rem;color:var(--bark);">tap − / + to edit qty</span>
+          <span style="font-size:0.68rem;color:var(--bark);">${order.done ? "done · locked" : canEdit ? "− / + qty · add-ons can only be added" : "add-ons can only be added"}</span>
         </div>
         ${editRows}
         ${addonRows ? `<div style="padding:4px 14px 0;border-top:1px dashed rgba(226,201,168,0.5);margin-top:4px;">${addonRows}</div>` : ""}
         <div style="padding:0 14px;">${totalRow}</div>
+        ${(order.refunds||[]).map(r => `<div class="refund-note"><span>↩ ${esc(r.label)} · ${esc(r.time||"")}</span><span>− ${fmt(r.amount)}</span></div>`).join("")}
+        ${rs.cup + rs.addon > 0 ? `<div class="refund-note" style="border-top:1px dashed #e0a8a8;margin-top:4px;padding-top:4px;"><span>Net after refunds</span><span>${fmt(order.total - rs.cup - rs.addon)}</span></div>` : ""}
+        <div class="oe-actions"><button class="oe-btn refund" onclick="event.stopPropagation();openRefund(${order.id})">↩ Refund</button></div>
         ${paymentSection}
       </div>
     </div>`;
   }).join("");
 }
 
+// ════════════════════════════════════════════════════
+//  PLACED ORDERS: ADD-ONS (add only) + REFUNDS
+// ════════════════════════════════════════════════════
+function refundSums(o) {
+  const r = { cup: 0, addon: 0 };
+  (o.refunds || []).forEach(x => { r[x.kind === "addon" ? "addon" : "cup"] += Number(x.amount) || 0; });
+  return r;
+}
+
+function bumpTallyRevenue(item, delta) {
+  const tally = getSalesTally(), key = item.code + "|" + (item.flavor || "");
+  if (tally[key]) { tally[key].revenue += delta; saveSalesTally(tally); }
+}
+
+// Recomputes an order's total after its lines changed and keeps the shift totals in step.
+function refreshOrderTotal(order) {
+  const cupTotal   = order.items.reduce((s,i) => s + i.unitPrice * i.qty, 0);
+  const addonTotal = order.items.reduce((s,i) => s + getItemAddonTotal(i) * i.qty, 0);
+  state.shiftTotal += (cupTotal + addonTotal) - order.total;
+  order.total = cupTotal + addonTotal;
+}
+
+let pendingOA = null;   // { orderId, key, base: {addon: qty at the moment the sheet opened} }
+
+function openOrderAddon(orderId, key) {
+  const order = state.orders.find(o => o.id === orderId);
+  if (!order || order.done) return;
+  let item = order.items.find(i => i.key === key);
+  if (!item) return;
+  if (item.qty > 1) {                       // one cup gets the add-on, the rest stay as they are
+    item.qty--;
+    const cup = { ...item, qty: 1, key: baseKey(item.key) + "#" + newUid(), addons: { ...(item.addons || {}) },
+                  notes: [...(item.notes || [])], refundedQty: 0, refundedAddons: {} };
+    order.items.splice(order.items.indexOf(item) + 1, 0, cup);
+    item = cup;
+  } else if (!item.key.includes("#")) item.key = item.key + "#" + newUid();
+  if (!item.addons) item.addons = {};
+  pendingOA = { orderId, key: item.key, base: { ...item.addons } };
+  saveState();
+  document.getElementById("orderAddonSub").textContent =
+    `Order #${order.id} · ${item.name}${item.flavor ? " · " + item.flavor : ""} · add only`;
+  document.getElementById("orderAddonModal").classList.add("open");
+  renderOrderAddonGrid();
+}
+
+function renderOrderAddonGrid() {
+  const grid = document.getElementById("orderAddonGrid");
+  grid.innerHTML = "";
+  if (!pendingOA) return;
+  const order = state.orders.find(o => o.id === pendingOA.orderId);
+  const item  = order && order.items.find(i => i.key === pendingOA.key);
+  if (!item) return;
+  ADDONS.forEach(a => {
+    const qty = item.addons[a.name] || 0, floor = pendingOA.base[a.name] || 0;
+    const pill = document.createElement("div");
+    pill.className = "addon-pill" + (qty > 0 ? " active" : "");
+    pill.setAttribute("role", "button");
+    pill.innerHTML = `<span class="addon-pill-name">${esc(a.name)}${qty > 0 ? ` <span class="addon-pill-qty">×${qty}</span>` : ""}</span>
+      <span class="addon-pill-price">+${fmt(a.price)}</span>
+      ${qty > floor ? `<span class="addon-minus" role="button" aria-label="Undo one ${esc(a.name)}">−</span>` : ""}`;
+    pill.addEventListener("click", e => {
+      vibe("tap");
+      if (e.target.closest(".addon-minus")) {          // only undoes what was added in this sheet
+        if (qty <= floor) return;
+        item.addons[a.name]--; if (!item.addons[a.name]) delete item.addons[a.name];
+        bumpTallyRevenue(item, -a.price);
+      } else {
+        item.addons[a.name] = qty + 1;
+        bumpTallyRevenue(item, a.price);
+      }
+      refreshOrderTotal(order);
+      saveState(); renderOrderAddonGrid(); updateHeaderStats();
+    });
+    grid.appendChild(pill);
+  });
+}
+
+function closeOrderAddon() {
+  document.getElementById("orderAddonModal").classList.remove("open");
+  if (!pendingOA) return;
+  const { orderId, key } = pendingOA; pendingOA = null;
+  const order = state.orders.find(o => o.id === orderId);
+  const item  = order && order.items.find(i => i.key === key);
+  if (item && !isCustomized(item)) {                    // nothing added: fold the cup back
+    const plain = baseKey(item.key);
+    const group = order.items.find(i => i.key === plain && i !== item);
+    if (group) { group.qty += item.qty; order.items = order.items.filter(i => i !== item); } else item.key = plain;
+  }
+  saveState(); syncGcashExpense(); renderOrdersLog(); updateHeaderStats();
+  setTimeout(() => { const c = document.getElementById("ordercard-" + orderId); if (c) c.classList.add("expanded"); }, 20);
+}
+
+// ── Refund: money goes back for a cup or an add-on. The order itself is never rewritten. ──
+let refundOrderId = null;
+function openRefund(orderId) {
+  refundOrderId = orderId;
+  document.getElementById("refundModal").classList.add("open");
+  renderRefundList();
+}
+function closeRefund() {
+  document.getElementById("refundModal").classList.remove("open");
+  const id = refundOrderId; refundOrderId = null;
+  renderOrdersLog();
+  if (id) setTimeout(() => { const c = document.getElementById("ordercard-" + id); if (c) c.classList.add("expanded"); }, 20);
+}
+function renderRefundList() {
+  const order = state.orders.find(o => o.id === refundOrderId);
+  const box = document.getElementById("refundList");
+  if (!order) { box.innerHTML = ""; return; }
+  document.getElementById("refundSub").textContent = `Order #${order.id} · ${fmt(order.total)}${order.paidOnline ? " · paid via GCash" : ""}`;
+  const rows = [];
+  order.items.forEach(i => {
+    const k = i.key.replace(/'/g, "\\'");
+    const cupsLeft = i.qty - (i.refundedQty || 0);
+    if (cupsLeft > 0) rows.push(`<div class="refund-row"><span>${esc(i.name)}${i.flavor ? " · " + esc(i.flavor) : ""}<small>${cupsLeft} cup${cupsLeft > 1 ? "s" : ""} left to refund</small></span>
+      <button class="oe-btn refund" onclick="doRefund('cup','${k}')">Refund ${fmt(i.unitPrice)}</button></div>`);
+    Object.entries(i.addons || {}).forEach(([name, q]) => {
+      const left = q * i.qty - ((i.refundedAddons || {})[name] || 0);
+      const a = ADDONS.find(x => x.name === name);
+      if (left > 0 && a) rows.push(`<div class="refund-row"><span>+ ${esc(name)} <small>on ${esc(i.name)}${i.flavor ? " · " + esc(i.flavor) : ""} · ${left} left</small></span>
+        <button class="oe-btn refund" onclick="doRefund('addon','${k}','${name.replace(/'/g, "\\'")}')">Refund ${fmt(a.price)}</button></div>`);
+    });
+  });
+  const refunded = (order.refunds || []).map(r => `<div class="refund-row" style="color:#a03030"><span>↩ ${esc(r.label)}<small>${esc(r.time || "")}</small></span><span>− ${fmt(r.amount)}</span></div>`).join("");
+  box.innerHTML = (rows.join("") || `<div class="no-orders">Nothing left to refund</div>`) + (refunded ? `<div class="popup-label" style="margin-top:12px;">Refunded</div>${refunded}` : "");
+}
+function doRefund(kind, key, addonName) {
+  const order = state.orders.find(o => o.id === refundOrderId);
+  const item = order && order.items.find(i => i.key === key);
+  if (!item) return;
+  let amount, label;
+  if (kind === "cup") {
+    if ((item.refundedQty || 0) >= item.qty) return;
+    item.refundedQty = (item.refundedQty || 0) + 1;
+    amount = item.unitPrice; label = `${item.name}${item.flavor ? " · " + item.flavor : ""}`;
+  } else {
+    const a = ADDONS.find(x => x.name === addonName); if (!a) return;
+    item.refundedAddons = item.refundedAddons || {};
+    if ((item.refundedAddons[addonName] || 0) >= (item.addons[addonName] || 0) * item.qty) return;
+    item.refundedAddons[addonName] = (item.refundedAddons[addonName] || 0) + 1;
+    amount = a.price; label = `${addonName} (add-on)`;
+  }
+  (order.refunds = order.refunds || []).push({ kind, label, amount, time: timeNow() });
+  vibe("undo");
+  saveState(); syncGcashExpense(); updateHeaderStats(); renderRefundList();
+}
+
 // ── Edit placed order item qty ────────────────────────────────────────────────
 function editOrderItem(orderId, itemKey, dir) {
   vibe("tap");
   const order = state.orders.find(o => o.id === orderId);
-  if (!order) return;
+  if (!order || order.done || (order.refunds || []).length) return;   // done orders are locked
   const item = order.items.find(i => i.key === itemKey);
   if (!item) return;
 
@@ -1264,7 +1431,7 @@ function updateExpensesBadge() {
 
 function addPosExpenseRow(name="", price="") {
   const container = document.getElementById("posExpensesContainer");
-  const isAuto = name === GCASH_EXPENSE_NAME;
+  const isAuto = isAutoExpense(name);
   const row = document.createElement("div");
   row.className = "expense-row" + (isAuto ? " auto-expense" : "");
   row.innerHTML = isAuto
@@ -1285,8 +1452,8 @@ function addPosExpenseRow(name="", price="") {
 function savePosExpenses() {
   const rows = document.querySelectorAll("#posExpensesContainer .expense-row");
   // Preserve the auto-synced GCash row as-is; it's managed by syncGcashExpense().
-  const gcash = state.expenses.find(e => e.name === GCASH_EXPENSE_NAME);
-  state.expenses = gcash ? [gcash] : [];
+  const autos = state.expenses.filter(e => isAutoExpense(e.name));
+  state.expenses = autos;
   rows.forEach(r => {
     if (r.classList.contains("auto-expense")) return;
     const name  = r.querySelector(".exp-name").value.trim();
@@ -1377,7 +1544,8 @@ function computeExtras() {
   const map = {};
   state.orders.forEach(o => o.items.forEach(i => {
     if (core.has(i.code)) return;
-    const e = map[i.code] || (map[i.code] = { code: i.code, name: i.name, cup: itemCup(i), qty: 0, total: 0 });
+    const k = i.code + "|" + i.unitPrice;           // same product at another price = another row
+    const e = map[k] || (map[k] = { code: i.code, name: i.name, cup: itemCup(i), price: i.unitPrice, qty: 0, total: 0 });
     e.qty += i.qty; e.total += i.unitPrice * i.qty;
   }));
   return Object.values(map);
@@ -1385,7 +1553,7 @@ function computeExtras() {
 
 function computeAddonRevenue() {
   return state.orders.reduce((sum,o) =>
-    sum + o.items.reduce((s,i) => s + getItemAddonTotal(i) * i.qty, 0), 0);
+    sum + o.items.reduce((s,i) => s + getItemAddonTotal(i) * i.qty, 0) - refundSums(o).addon, 0);
 }
 
 function openEndShift() {
@@ -1488,7 +1656,7 @@ function confirmEndShift() {
 //  KEY SHORTCUTS
 // ════════════════════════════════════════════════════
 document.addEventListener("keydown", e => {
-  if (e.key==="Escape") { closeFlavorModal(); closeReceiptModal(); closeEndShift(); closeFlavorSettings(); }
+  if (e.key==="Escape") { closeFlavorModal(); closeReceiptModal(); closeEndShift(); closeFlavorSettings(); closeOrderAddon(); if (refundOrderId) closeRefund(); }
 });
 
 // ════════════════════════════════════════════════════

@@ -48,6 +48,7 @@ function _readMenuLayout() {
     items:  l.items && typeof l.items === "object" ? l.items : {},
     custom: Array.isArray(l.custom) ? l.custom.filter(c => c && c.code) : [],
     deleted: Array.isArray(l.deleted) ? l.deleted.map(String) : [],
+    palette: Array.isArray(l.palette) ? l.palette.map(String).filter(c => safeColor(c)).map(c => c.toUpperCase()).slice(0, 24) : [],
   };
 }
 
@@ -80,7 +81,7 @@ function loadMenuDrinks() {
     }
     if (o.name) d.name = String(o.name).slice(0, 24);
     if (o.icon) d.icon = String(o.icon).slice(0, 4);
-    d.img = safeImg(o.img); d.color = safeColor(o.color); d.hidden = !!o.hidden;
+    d.img = safeImg(o.img); d.color = safeColor(o.color); d.fg = safeColor(o.fg); d.hidden = !!o.hidden;
   });
   const pos = c => { const i = l.order.indexOf(c); return i < 0 ? 999 : i; };
   return list.map((d, i) => ({ d, i })).sort((a, b) => (pos(a.d.code) - pos(b.d.code)) || (a.i - b.i)).map(x => x.d);
@@ -98,7 +99,12 @@ function menuTextColor(hex) {
 function drinkIconHTML(d) {
   return d.img ? `<img class="drink-btn-img" src="${d.img}" alt="">` : `<span class="drink-btn-icon">${esc(d.icon)}</span>`;
 }
-function drinkTileStyle(d) { return d.color ? `--tile-bg:${d.color};--tile-fg:${menuTextColor(d.color)};` : ""; }
+// Text color: the one you picked, else black/white picked automatically from the tile color.
+function drinkTileStyle(d) {
+  const fg = d.fg || (d.color ? menuTextColor(d.color) : "");
+  return (d.color ? `--tile-bg:${d.color};` : "") + (fg ? `--tile-fg:${fg};` : "");
+}
+function drinkTileClass(d) { return (d.color ? " custom" : "") + (d.fg || d.color ? " custom-fg" : ""); }
 
 // ── POS quick-edit mode ──────────────────────────────────────────────────────
 function toggleMenuEdit(on) {
@@ -116,7 +122,7 @@ function renderMenuEditTiles(grid) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.dataset.code = d.code;
-    btn.className = "drink-btn editing" + (d.color ? " custom" : "") + (d.hidden ? " is-hidden" : "");
+    btn.className = "drink-btn editing" + drinkTileClass(d) + (d.hidden ? " is-hidden" : "");
     btn.style.cssText = drinkTileStyle(d);
     btn.innerHTML = `
       <span class="tile-edit-badge">${d.hidden ? "🚫" : "✏️"}</span>
@@ -242,7 +248,7 @@ let _miOpenedAt = 0;
 function openMenuItemEditor(code) {
   const d = loadMenuDrinks().find(x => x.code === code);
   if (!d) return;
-  _mi = { code, isNew: false, builtin: d.builtin, core: !!d.core, name: d.name, icon: d.icon, img: d.img || "", color: d.color || "",
+  _mi = { code, isNew: false, builtin: d.builtin, core: !!d.core, name: d.name, icon: d.icon, img: d.img || "", color: d.color || "", fg: d.fg || "",
           hidden: !!d.hidden, price: d.price, cup: d.cup, flav: d.flav, defaultName: d.defaultName, defaultIcon: d.defaultIcon,
           lists: JSON.parse(JSON.stringify(getSettings().flavors)) };
   showMenuSheet();
@@ -252,7 +258,7 @@ function openNewProduct() {
   const l = getMenuLayout();
   const used = new Set(DEFAULT_MENU.map(d => d.code).concat(l.custom.map(c => c.code)));
   let n = 1; while (used.has("P" + n)) n++;
-  _mi = { code: "P" + n, isNew: true, builtin: false, name: "", icon: "🧋", img: "", color: "", hidden: false, price: 0, cup: "", flav: "",
+  _mi = { code: "P" + n, isNew: true, builtin: false, name: "", icon: "🧋", img: "", color: "", fg: "", hidden: false, price: 0, cup: "", flav: "",
           lists: JSON.parse(JSON.stringify(getSettings().flavors)) };
   showMenuSheet();
 }
@@ -274,6 +280,7 @@ function showMenuSheet() {
 }
 
 function closeMenuItemEditor() {
+  _miPalEdit = false;
   document.getElementById("menuItemSheet")?.classList.remove("open");
   _mi = null;
 }
@@ -368,12 +375,11 @@ function renderMenuItemEditor() {
         ${m.img ? `<button type="button" class="mi-btn" onclick="_mi.img='';renderMenuItemEditor()">Remove</button>` : ""}
       </div>
 
-      <label class="mi-label">Tile Color</label>
-      <div class="mi-row" style="flex-wrap:wrap;">
-        <input type="color" id="miColor" value="${m.color || "#FDF5E8"}" oninput="_mi.color=this.value;renderMenuItemEditor()">
-        ${MENU_SWATCHES.map(c => `<button type="button" class="mi-swatch${m.color.toLowerCase() === c.toLowerCase() ? " active" : ""}" style="background:${c}" onclick="_mi.color='${c}';renderMenuItemEditor()"></button>`).join("")}
-        <button type="button" class="mi-btn" onclick="_mi.color='';renderMenuItemEditor()">Default</button>
-      </div>
+      <label class="mi-label">Preview</label>
+      <div class="mi-tile-preview" id="miPreview"></div>
+
+      ${_miColorSection("color", "Tile Color")}
+      ${_miColorSection("fg", "Font Color")}
 
       <label class="mi-check">
         <input type="checkbox" ${m.hidden ? "" : "checked"} onchange="_mi.hidden=!this.checked">
@@ -387,6 +393,66 @@ function renderMenuItemEditor() {
         <button type="button" class="mi-btn primary" onclick="saveMenuItem()">Save</button>
       </div>
     </div>`;
+  updateMiPreview();
+}
+
+// ── Colors: swatches + a palette you can save your own colors to ─────────────
+const FONT_SWATCHES = ["#FFFFFF", "#000000", "#3D1F0A", "#6B3D1E", "#F2C94C", "#D45A5A"];
+let _miPalEdit = false;
+
+function _miColorSection(kind, title) {
+  const m = _mi, cur = (m[kind] || "").toUpperCase();
+  const base = kind === "fg" ? FONT_SWATCHES : MENU_SWATCHES;
+  const pal = getMenuLayout().palette;
+  const sw = (c, del) => `<button type="button" class="mi-swatch${cur === c.toUpperCase() ? " active" : ""}" style="background:${c}" aria-label="${c}"
+      onclick="${del ? `miPaletteRemove('${c}')` : `miPickColor('${kind}','${c}')`}">${del ? "<span class=\"mi-sw-x\">✕</span>" : ""}</button>`;
+  const autoLabel = kind === "fg" ? "Auto" : "Default";
+  return `
+      <label class="mi-label">${title}</label>
+      <div class="mi-row" style="flex-wrap:wrap;">
+        <input type="color" class="mi-colorinput" value="${cur || (kind === "fg" ? "#3D1F0A" : "#FDF5E8")}"
+          oninput="miPickColor('${kind}',this.value,true)" onchange="renderMenuItemEditor()">
+        ${base.map(c => sw(c, false)).join("")}
+        <button type="button" class="mi-btn" onclick="miPickColor('${kind}','')">${autoLabel}</button>
+      </div>
+      <div class="mi-pal">
+        <span class="mi-pal-label">My colors</span>
+        ${pal.length ? pal.map(c => sw(c, _miPalEdit)).join("") : `<span class="mi-pal-empty">None saved yet</span>`}
+        <button type="button" class="mi-btn small" ${cur ? "" : "disabled"} onclick="miPaletteAdd('${kind}')">＋ Save this color</button>
+        ${pal.length ? `<button type="button" class="mi-btn small" onclick="_miPalEdit=!_miPalEdit;renderMenuItemEditor()">${_miPalEdit ? "Done" : "Edit"}</button>` : ""}
+      </div>`;
+}
+
+function miPickColor(kind, hex, live) {
+  if (!_mi) return;
+  _mi[kind] = hex ? hex.toUpperCase() : "";
+  if (live) updateMiPreview(); else renderMenuItemEditor();
+}
+
+function miPaletteAdd(kind) {
+  const c = (_mi && _mi[kind] || "").toUpperCase();
+  if (!safeColor(c)) return;
+  const l = getMenuLayout();
+  if (!l.palette.includes(c)) { l.palette.push(c); if (l.palette.length > 24) l.palette.shift(); saveMenuLayout(l); }
+  renderMenuItemEditor();
+}
+
+function miPaletteRemove(c) {
+  const l = getMenuLayout();
+  l.palette = l.palette.filter(x => x !== c.toUpperCase());
+  if (!l.palette.length) _miPalEdit = false;
+  saveMenuLayout(l);
+  renderMenuItemEditor();
+}
+
+function updateMiPreview() {
+  const el = document.getElementById("miPreview"), m = _mi;
+  if (!el || !m) return;
+  const t = drinkTileStyle({ color: safeColor(m.color), fg: safeColor(m.fg) });
+  el.className = "drink-btn mi-tile-preview" + drinkTileClass({ color: safeColor(m.color), fg: safeColor(m.fg) });
+  el.style.cssText = t;
+  el.innerHTML = `${m.img ? `<img class="drink-btn-img" src="${m.img}" alt="">` : `<span class="drink-btn-icon">${esc(m.icon)}</span>`}
+    <span class="drink-btn-name">${esc(m.name || "Product name")}</span><span class="drink-btn-price">${fmt(m.price || 0)}</span>`;
 }
 
 // Crops to a small square so it stays light for storage and sync
@@ -419,7 +485,7 @@ function saveMenuItem() {
     l.items[m.code] = {
       name: name !== m.defaultName ? name : "",
       icon: m.icon && m.icon !== m.defaultIcon ? m.icon : "",
-      img: m.img || "", color: m.color || "", hidden: !!m.hidden,
+      img: m.img || "", color: m.color || "", fg: m.fg || "", hidden: !!m.hidden,
       flav: m.flav || "",
     };
     if (!m.core) l.items[m.code].cup = m.cup || "";
@@ -429,7 +495,7 @@ function saveMenuItem() {
     const c = { code: m.code, name, icon: m.icon || "🧋", price: m.price, cup: m.cup, flav: m.flav };
     const i = l.custom.findIndex(x => x.code === m.code);
     if (i >= 0) l.custom[i] = c; else l.custom.push(c);
-    l.items[m.code] = { img: m.img || "", color: m.color || "", hidden: !!m.hidden };
+    l.items[m.code] = { img: m.img || "", color: m.color || "", fg: m.fg || "", hidden: !!m.hidden };
     if (m.isNew && !l.order.length) l.order = loadMenuDrinks().map(x => x.code);
     if (m.isNew && !l.order.includes(m.code)) l.order.push(m.code);
     // An own list only exists while the product uses it
@@ -486,6 +552,7 @@ function resetMenuLayout() {
   DEFAULT_MENU.forEach(d => { delete cfg.flavors[d.code]; });
   saveSettings(cfg);
   localStorage.removeItem(MENU_KEY);
+  if (l.palette.length) writeJSON(MENU_KEY, { palette: l.palette });   // your saved colors stay
   localStorage.setItem("brewsSettingsModified", new Date().toISOString());
   menuChanged();
 }

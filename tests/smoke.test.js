@@ -64,6 +64,7 @@ server.listen(0, async () => {
   [...d.querySelectorAll("#drinksGrid .drink-btn")].find(b => b.textContent.includes("Brownie")).click();
   check("tile shows product name, not the code", [...d.querySelectorAll("#drinksGrid .drink-btn")].every(b => !b.querySelector(".drink-btn-code")));
   check("no-cup, no-flavor product adds straight to the order", w.eval("state.currentItems.some(i=>i.code==='P1')") && !d.getElementById("flavorModal").classList.contains("open"));
+  check("same cup + same price stays on the M row, different price gets its own row", w.eval(`(() => { const s = new InventorySystem({}); s.setCupsM(100, 50, 0); s.setExtras([{ name: "FT", cup: "M", qty: 5, total: 145 }, { name: "Frappe", cup: "M", qty: 2, total: 120 }]); return s.M.usedCups === 48 && s.extras.length === 1 && s.extras[0].name === "Frappe"; })()`));
   check("shift timer runs", /^\d+m \d+s$/.test(d.getElementById("shiftTimer").textContent) || /h/.test(d.getElementById("shiftTimer").textContent));
   dom.window.close();
   server.close(); process.exit(failed ? 1 : 0);

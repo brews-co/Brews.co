@@ -46,6 +46,24 @@ service-worker.js     offline cache (bump CACHE_NAME every release)
   and the sales show on their own rows in Calculate.
 - Flavor lists live in `settings.flavors`. A product's own list is keyed by its code.
 
+## Cups and receipt rows
+
+Cup stock is one pool per cup size (M, L, S, HC): `beg + delivered - out = end`.
+On the receipt a product shares a row with an existing one when it uses the **same cup and the
+same price** (Fruit Tea M at the Medium price is part of the Medium row). A different price gets
+its own row, and its cups are taken out of the cup row they came from.
+
+## Orders
+
+- Not done: qty can change and add-ons can be added (never removed once on the order).
+- Done: locked. Use **Refund** for a cup or an add-on. Cash cup refunds show as an auto
+  expense, add-on refunds reduce Add-ons, and online (GCash) orders never touch the cash count.
+
+## Menu colors
+
+Each tile has a tile color and a font color (Auto picks black/white). Save colors to
+**My colors** in the product editor; the palette syncs with the menu.
+
 ## Releasing
 
 1. Bump `CACHE_NAME` in `service-worker.js`.

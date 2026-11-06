@@ -138,16 +138,16 @@
     }
     .drink-btn.low-stock .stock-pill { background: #fde8c8; color: #b06820; }
     .drink-btn.out-stock .stock-pill { background: #fdd8d8; color: #b04040; }
+    /* Count bubble sits INSIDE the tile (the tile clips overflow, so it used to be cut into a wedge) */
     .qty-badge {
-      position: absolute; top: -7px; right: -7px;
+      position: absolute; top: 6px; right: 6px;
       background: var(--grad-cta);
       color: var(--white); font-size: 0.68rem; font-weight: 800;
-      width: 20px; height: 20px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
+      min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 10px;
+      display: none; align-items: center; justify-content: center;
       box-shadow: 0 2px 6px rgba(107,61,30,0.35);
-      opacity: 0; transform: scale(0.4); transition: background-color .16s, border-color .16s, color .16s, box-shadow .16s, transform .16s, opacity .16s, filter .16s;
     }
-    .drink-btn.has-qty .qty-badge { opacity: 1; transform: scale(1); }
+    .drink-btn.has-qty .qty-badge { display: flex; }
     @keyframes popBadge { 0%{transform:scale(1)} 40%{transform:scale(1.4)} 100%{transform:scale(1)} }
     .qty-badge.pop { animation: popBadge .22s ease; }
 
@@ -984,6 +984,33 @@
     <div class="flavor-modal-footer">
       <button class="flavor-modal-done-btn" onclick="closeItemAddonModal()">Done</button>
     </div>
+  </div>
+</div>
+
+<!-- ═══════════ ORDER ADD-ON (placed order, add only) ═══════════ -->
+<div class="modal-overlay centered" id="orderAddonModal">
+  <div class="modal popup">
+    <div class="modal-header-row"><div>
+      <div class="modal-title">Add Add-ons</div>
+      <div class="modal-sub" id="orderAddonSub"></div>
+    </div></div>
+    <div class="popup-body">
+      <div class="popup-label">Add-ons <small>already on the order stay · use Refund to give money back</small></div>
+      <div class="addon-pills" id="orderAddonGrid"></div>
+    </div>
+    <div class="flavor-modal-footer"><button class="flavor-modal-done-btn" onclick="closeOrderAddon()">Done</button></div>
+  </div>
+</div>
+
+<!-- ═══════════ REFUND ═══════════ -->
+<div class="modal-overlay centered" id="refundModal">
+  <div class="modal popup">
+    <div class="modal-header-row"><div>
+      <div class="modal-title">Refund</div>
+      <div class="modal-sub" id="refundSub"></div>
+    </div></div>
+    <div class="popup-body"><div id="refundList"></div></div>
+    <div class="flavor-modal-footer"><button class="flavor-modal-done-btn" onclick="closeRefund()">Done</button></div>
   </div>
 </div>
 
