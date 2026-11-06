@@ -10,7 +10,7 @@ const CACHE_NAME = "brews-inventory-v18";
 
 const APP_FILES = [
   "./", "./index.html", "./calculate.html", "./pos.html", "./calendar.html", "./settings.html",
-  "./manifest.json", "./css/styles.css",
+  "./manifest.json", "./css/styles.css", "./css/polish.css",
   "./js/util.js", "./js/theme.js", "./js/appstyle.js", "./js/nav.js", "./js/header.js", "./js/layout.js",
   "./js/settings.js", "./js/menu.js", "./js/sync.js",
   "./js/InventorySystem.js", "./js/storage.js", "./js/history.js", "./js/ui.js", "./js/main.js",

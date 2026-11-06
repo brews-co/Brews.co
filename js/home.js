@@ -130,4 +130,5 @@ applyBottomNavRole();
     window.addEventListener("offline", () => _setOffline(true));
     if (!navigator.onLine) _setOffline(true);
 
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("service-worker.js");
+    // The Android app ships its files inside the APK, so it needs no service worker
+    if ("serviceWorker" in navigator && !(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) navigator.serviceWorker.register("service-worker.js");

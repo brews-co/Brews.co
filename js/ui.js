@@ -625,10 +625,10 @@ function printReceipt() {
   html2canvas(el, { backgroundColor: "#fffaf5", scale: 2, useCORS: true, logging: false })
     .then(canvas => {
       document.body.removeChild(el);
-      const link    = document.createElement("a");
-      link.download = filename;
-      link.href     = canvas.toDataURL("image/png");
-      link.click();
+      canvas.toBlob(b => {
+        if (!b) { alert("Could not save image. Try again."); return; }
+        saveFile(filename, b).catch(() => alert("Could not save image. Try again."));
+      }, "image/png");
     }).catch(() => {
       if (document.body.contains(el)) document.body.removeChild(el);
       alert("Could not save image. Try again.");

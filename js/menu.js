@@ -35,7 +35,13 @@ function menuCups() {
 
 
 // ── Data ─────────────────────────────────────────────────────────────────────
+let _mlRaw = null, _mlVal = null;
 function getMenuLayout() {
+  const stored = localStorage.getItem(MENU_KEY);
+  if (_mlVal === null || stored !== _mlRaw) { _mlVal = _readMenuLayout(); _mlRaw = stored; }
+  return JSON.parse(JSON.stringify(_mlVal));
+}
+function _readMenuLayout() {
   const l = readJSON(MENU_KEY, {});
   return {
     order:  Array.isArray(l.order) ? l.order.map(String) : [],
