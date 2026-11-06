@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="theme-color" content="#6b4f36" />
+  <title>BREWS.CO</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="js/util.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/appstyle.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/header.js"></script>
+  <style>
+    body { padding: 0; }
+    .home-view { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 100vh; padding: 28px 20px 24px; gap: 14px; }
+    body.has-bottom-nav .home-view { min-height: calc(100vh - 70px); }
+    .home-view > * { width: 100%; max-width: 400px; }
+    .home-logo { text-decoration: none; display: block; margin-bottom: 4px; }
+    .home-logo .brand     { font-size: 2.2rem; color: var(--espresso); letter-spacing: 0.20em; }
+    .home-logo .brand-sub { font-size: 0.62rem; color: var(--dust); margin-bottom: 0; }
+
+    .home-card {
+      background: var(--grad-card); border: 1.5px solid var(--latte); border-radius: 26px;
+      padding: 34px 28px 30px; box-shadow: var(--shadow-card); position: relative; overflow: hidden;
+    }
+    .home-card::before { content:""; position:absolute; top:0;left:0;right:0;height:3px;background:var(--grad-cta); }
+    .home-card::after  { content:"☕"; position:absolute;bottom:-12px;right:-2px;font-size:6rem;opacity:0.04;transform:rotate(-12deg);pointer-events:none; }
+    .home-emoji { font-size: 3.2rem; line-height: 1; margin-bottom: 16px; }
+    .home-msg   { font-family:"Cormorant Garamond",serif; font-size:1.55rem; font-weight:700; color:var(--espresso); line-height:1.25; margin-bottom:8px; }
+    .home-sub   { font-size:0.9rem; color:var(--bark); font-weight:500; }
+    .home-date  { font-size:0.65rem; color:var(--dust); font-weight:600; letter-spacing:0.14em; text-transform:uppercase; margin-top: -4px; }
+
+    .shift-card { background: var(--grad-card); border: 1.5px solid var(--latte); border-radius: 22px; padding: 22px 20px; box-shadow: var(--shadow-card); position: relative; overflow: hidden; }
+    .shift-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--grad-cta); }
+    .shift-state { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--bark); display: flex; align-items: center; gap: 7px; }
+    .shift-state i { width: 8px; height: 8px; border-radius: 50%; background: var(--mochaccino); display: inline-block; }
+    .shift-state i.live { background: #6ab86a; animation: pulse .9s infinite; }
+    .shift-title { font-size: 1.15rem; font-weight: 800; color: var(--roast); margin: 8px 0 4px; }
+    .shift-sub { font-size: 0.8rem; color: var(--bark); margin-bottom: 14px; }
+    .shift-btn { display: block; text-align: center; text-decoration: none; background: var(--grad-cta); color: #fff; border-radius: var(--radius-lg); padding: 14px; font-size: 0.92rem; font-weight: 700; box-shadow: var(--shadow-btn); }
+    .shift-btn:active { transform: scale(0.98); }
+
+    .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat { background: var(--pearl); border: 1.5px solid var(--latte); border-radius: var(--radius-lg); padding: 12px 14px; }
+    .stat span { display: block; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dust); }
+    .stat b { display: block; font-size: 1.05rem; color: var(--roast); margin-top: 3px; font-variant-numeric: tabular-nums; }
+
+    /* ── Sync card ── */
+    .sync-card {
+      width:100%; max-width:400px; margin-top:14px;
+      background:var(--pearl); border:1.5px solid var(--latte);
+      border-radius:var(--radius-lg); padding:14px 16px;
+      box-shadow:0 1px 6px rgba(60,20,0,0.06);
+    }
+    .sync-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+    .sync-status { display:flex; align-items:center; gap:7px; font-size:0.72rem; color:var(--bark); font-weight:600; }
+    .sync-dot { width:8px; height:8px; border-radius:50%; background:var(--mochaccino); flex-shrink:0; transition:background .3s; }
+    .sync-dot.ok    { background:#6ab86a; }
+    .sync-dot.busy  { background:var(--honey); animation:pulse .8s infinite; }
+    .sync-dot.error { background:var(--danger); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+    .sync-btns { display:flex; gap:8px; }
+    .home-offline-pill {
+      width:100%; max-width:400px; margin-top:8px;
+      background: linear-gradient(135deg,var(--danger-darkest),var(--danger-deep));
+      color:var(--white); text-align:center; padding:8px 14px;
+      border-radius:var(--radius-md); font-size:0.78rem; font-weight:700;
+      display:none; box-shadow:0 2px 8px rgba(180,60,0,0.30);
+    }
+    .home-offline-pill.visible { display:block; }
+    .sync-btn { flex:1; padding:9px 10px; border-radius:var(--radius-md); font-size:0.82rem; font-weight:700; font-family:"Plus Jakarta Sans",sans-serif; cursor:pointer; border:none; transition:all .18s; text-align:center; }
+    .sync-btn-push { background:var(--grad-cta); color:var(--white); box-shadow:var(--shadow-btn); }
+    .sync-btn-push:hover { filter:brightness(1.08); transform:translateY(-1px); }
+    .sync-btn-pull { background:var(--parchment); color:var(--mahogany); border:1.5px solid var(--latte); }
+    .sync-btn-pull:hover { background:var(--latte); transform:translateY(-1px); }
+    .sync-btn:disabled { opacity:0.5; cursor:default; transform:none; }
+
+  </style>
+</head>
+<body class="has-bottom-nav">
+  <div class="home-view">
+    <a href="index.html" class="home-logo">
+      <div class="brand">BREWS.CO</div>
+      <div class="brand-sub">Inventory System</div>
+    </a>
+
+    <div class="home-card">
+      <div class="home-emoji" id="homeEmoji"></div>
+      <div class="home-msg"   id="homeMsg"></div>
+      <div class="home-sub"   id="homeSub"></div>
+    </div>
+    <div class="home-date" id="homeDate"></div>
+
+    <div class="shift-card" id="shiftCard"></div>
+
+    <div class="stat-row">
+      <div class="stat"><span>Today's Total</span><b id="todayTotal">—</b></div>
+      <div class="stat"><span>Orders Today</span><b id="todayOrders">—</b></div>
+    </div>
+
+    <div class="sync-card" style="margin-top:0;">
+      <div class="sync-row" style="margin-bottom:10px;">
+        <div class="sync-status">
+          <span class="sync-dot" id="syncDot"></span>
+          <span id="syncStatusText">Not synced yet</span>
+        </div>
+      </div>
+      <div class="sync-btns">
+        <button class="sync-btn sync-btn-push" id="syncPushBtn" onclick="doSync('push')">☁️ Push</button>
+        <button class="sync-btn sync-btn-pull" id="syncPullBtn" onclick="doSync('pull')">⬇️ Pull</button>
+      </div>
+    </div>
+    <div class="home-offline-pill" id="homeOfflinePill">📡 No connection. Sync when back online</div>
+  </div>
+
+  <div data-layout-nav="home" data-nav-id="bottomNav"></div>
+
+  <script src="vendor/firebase-app-compat.js"></script>
+  <script src="vendor/firebase-firestore-compat.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/home.js"></script>
+</body>
+</html>

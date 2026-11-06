@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="theme-color" content="#6b4f36" />
+  <title>BREWS.CO – Calculate</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="js/util.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/appstyle.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/header.js"></script>
+  <style>
+    .damage-note {
+      font-size: 0.68rem; color: var(--dust); font-weight: 500;
+      margin-left: 6px; font-style: italic; text-transform: none; letter-spacing: 0;
+    }
+    .del-dmg-header {
+      display: grid; grid-template-columns: 96px 1fr 1fr;
+      gap: 8px; margin-bottom: 4px;
+    }
+    .del-dmg-header span {
+      font-size: 0.68rem; font-weight: 700; color: var(--dust);
+      letter-spacing: 0.07em; text-transform: uppercase; text-align: center;
+    }
+    .del-dmg-header span:first-child { text-align: left; }
+    .carryover-btn {
+      display: flex; align-items: center; gap: 7px; width: 100%;
+      background: var(--success-bg); border: 1.5px solid var(--success-border); border-radius: var(--radius-md);
+      padding: 11px 14px; font-size: 0.84rem; font-weight: 700; color: var(--success-dark);
+      font-family: "Plus Jakarta Sans", sans-serif; cursor: pointer; margin-bottom: 10px; transition: all .18s;
+    }
+    .carryover-btn:hover { background: var(--success-bg-soft); border-color: var(--success-hover-border); transform: translateY(-1px); }
+    .carryover-meta { font-size: 0.7rem; color: var(--success-mid); font-weight: 500; margin-left: auto; }
+    @media (max-width: 600px) {
+      .del-dmg-header { display: none; }
+    }
+  </style>
+</head>
+<body class="has-bottom-nav">
+  <div class="container">
+    <div data-layout-header data-subtitle="Calculate"></div>
+
+    <div id="carryoverWrap" style="display:none;">
+      <button class="carryover-btn" onclick="useYesterdaysEnding()">
+        📋 Use Yesterday's Ending Cups
+        <span class="carryover-meta" id="carryoverMeta"></span>
+      </button>
+    </div>
+
+    <div class="section">
+      <h3>Input Cups</h3>
+      <!-- M and L have 3 real inputs: begin, end, tally -->
+      <div class="row"><label>Medium</label><input type="number" id="beginM" placeholder="Begin"><input type="number" id="endM" placeholder="End"><input type="number" id="tallyMC" placeholder="MC Tally"></div>
+      <div class="row"><label>Large</label><input type="number" id="beginL" placeholder="Begin"><input type="number" id="endL" placeholder="End"><input type="number" id="tallyLC" placeholder="LC Tally"></div>
+      <!-- S and HC only have begin + end -->
+      <div class="row-2"><label>Small</label><input type="number" id="beginS" placeholder="Begin"><input type="number" id="endS" placeholder="End"></div>
+      <div class="row-2"><label>Hot Coffee</label><input type="number" id="beginHC" placeholder="Begin"><input type="number" id="endHC" placeholder="End"></div>
+    </div>
+
+    <div class="section">
+      <h3>Delivered &amp; Damage <span class="damage-note">optional — shown in receipt only</span></h3>
+      <div class="del-dmg-header">
+        <span>Cup</span><span>Delivered</span><span>Damage</span>
+      </div>
+      <div class="row-2"><label>Medium</label><input type="number" id="deliveredM" placeholder="0"><input type="number" id="damageM" placeholder="0"></div>
+      <div class="row-2"><label>Large</label><input type="number" id="deliveredL" placeholder="0"><input type="number" id="damageL" placeholder="0"></div>
+      <div class="row-2"><label>Small</label><input type="number" id="deliveredS" placeholder="0"><input type="number" id="damageS" placeholder="0"></div>
+      <div class="row-2"><label>Hot Coffee</label><input type="number" id="deliveredHC" placeholder="0"><input type="number" id="damageHC" placeholder="0"></div>
+    </div>
+
+    <div class="section">
+      <h3>Expenses &amp; Addons</h3>
+      <div id="expensesContainer">
+        <div class="expense-row">
+          <input type="text" class="exp-name" placeholder="Item name">
+          <input type="number" class="exp-price" placeholder="₱0">
+          <button type="button" onclick="this.parentElement.remove(); saveInputs();">✕</button>
+        </div>
+      </div>
+      <button type="button" class="add-expense-btn" onclick="addExpenseRow()">+ Add Expense</button>
+      <!-- Addons: single input, no dummy blanks -->
+      <div class="row-addon" style="margin-top:12px;">
+        <label>Addons</label>
+        <input type="number" id="addons" placeholder="₱0">
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Needs <span class="damage-note">auto-detected + manual — optionally printed on receipt</span></h3>
+
+      <!-- Auto-detected preview — populated after compute or on load -->
+      <div id="needsAutoPreview" style="margin-bottom:12px;"></div>
+
+      <!-- Free-text other needs -->
+      <div>
+        <div style="font-size:0.7rem;font-weight:700;color:var(--bark);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:7px;">Other Needs</div>
+        <div id="needsContainer"></div>
+        <button type="button" class="add-expense-btn" onclick="addNeedRow()">+ Add Item</button>
+      </div>
+    </div>
+
+    <div class="button-group">
+      <button onclick="calculate()">Compute</button>
+      <button onclick="clearAll()" class="secondary">Clear All</button>
+    </div>
+
+    <div class="section">
+      <div id="results"></div>
+    </div>
+  </div>
+
+  <div data-layout-nav="calculate"></div>
+
+  <script src="js/layout.js"></script>
+<script src="js/calc-page.js"></script>
+  <script src="vendor/html2canvas.min.js"></script>
+  <script src="vendor/firebase-app-compat.js"></script>
+  <script src="vendor/firebase-firestore-compat.js"></script>
+  <script src="js/settings.js"></script>
+      <script src="js/sync.js"></script>
+  <script src="js/InventorySystem.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/history.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
